@@ -54,36 +54,69 @@ def rotation_z(angle):
 
 #need to unit test all of these functions
 
-def angle_between_vectors(vector_1, vector_2):
-    v1 = vector_1.copy()
-    v2 = vector_2.copy()
+# def angle_between_vectors(vector_1, vector_2):
+#     '''
+#     this doesn't work on principle because it doesn't know directions
+#     '''
+#     v1 = vector_1.copy()
+#     v2 = vector_2.copy()
     
+#     if np.allclose(v1, [0,0,0]) or np.allclose(v2, [0,0,0]):
+#         raise ValueError("zero vector in angle_between_vectors")
+    
+#     if np.linalg.norm(v1) == 0:
+#         raise ValueError("floating point failure")
+#     if np.linalg.norm(v1) == 0:
+#         raise ValueError("floating point failure")
+    
+#     v1 = v1 / np.linalg.norm(v1)
+#     v2 = v2 / np.linalg.norm(v2)
+    
+#     if np.allclose(v1, [0,0,0]) or np.allclose(v2, [0,0,0]):
+#         raise ValueError("zero vector in angle_between_vectors")
+    
+#     #THESE ARE NECESSARY BECAUSE OF FLOATING POINT IMPRECISION
+#     if np.allclose(v1, v2):
+#         return 0
+#     if np.allclose(v1, -v2):
+#         return np.pi
+    
+    
+#     angle = np.arccos(np.clip(np.dot(v1, v2), -1.0, 1.0))
+#     #print (angle)
+    
+#     return angle
+
+
+import numpy as np
+
+def angle_between_vectors(_v1, _v2):
+    '''
+    copilot wrote this
+    check floating point errors around 
+    theta = 0, pi
+    Calculate the angle between two vectors in 3D space, taking into account the direction.
+    '''
+    # Copy vectors
+    v1 = _v1.copy()
+    v2 = _v2.copy()
+
+    # Check for zero vectors
     if np.allclose(v1, [0,0,0]) or np.allclose(v2, [0,0,0]):
         raise ValueError("zero vector in angle_between_vectors")
-    
-    if np.linalg.norm(v1) == 0:
-        raise ValueError("floating point failure")
-    if np.linalg.norm(v1) == 0:
-        raise ValueError("floating point failure")
-    
+
+    # Normalize vectors
     v1 = v1 / np.linalg.norm(v1)
     v2 = v2 / np.linalg.norm(v2)
-    
-    if np.allclose(v1, [0,0,0]) or np.allclose(v2, [0,0,0]):
-        raise ValueError("zero vector in angle_between_vectors")
-    
-    #THESE ARE NECESSARY BECAUSE OF FLOATING POINT IMPRECISION
-    if np.allclose(v1, v2):
-        return 0
-    if np.allclose(v1, -v2):
-        return np.pi
-    
-    
-    angle = np.arccos(np.clip(np.dot(v1, v2), -1.0, 1.0))
-    #print (angle)
-    
-    return angle
 
+    # Calculate the cross and dot products
+    cross_product = np.cross(v1, v2)
+    dot_product = np.dot(v1, v2)
+
+    # Calculate the angle
+    angle = np.arctan2(np.linalg.norm(cross_product), dot_product)
+
+    return angle
 
 #new set of dihedral functions: just use vectors, not points.
 

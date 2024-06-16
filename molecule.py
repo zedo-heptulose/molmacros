@@ -61,6 +61,9 @@ class Molecule:
     
     def __delitem__(self, key):
         del self.atom_coords[key]
+        
+    def __iter__(self):
+        return iter(self.atom_coords)
     
     def print_sites(self):
         for key in self.sites:
@@ -93,51 +96,46 @@ class Molecule:
     
     def transform(self, matrix, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace is None:
-            inplace = self.inplace
-        if inplace:
-            self.atom_coords = smt.transform(self.atom_coords, matrix)
-            return self
-        else:
-            mol_copy = self.copy()
-            mol_copy.atom_coords = smt.transform(mol_copy.atom_coords, matrix)
-            return mol_copy
+        
+        molecule = self.instance(inplace)
+        
+        molecule.atom_coords = smt.transform(self.atom_coords, matrix)
+        
+        return molecule
     
     def translate(self, vector, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        
-        if inplace:
-            self.atom_coords = smt.translate(self.atom_coords, vector)
-            return self
-        else:
-            mol_copy = self.copy()
-            mol_copy.atom_coords = smt.translate(mol_copy.atom_coords, vector)
-            return mol_copy
+
+        molecule = self.instance(inplace)
+        molecule.atom_coords = smt.translate(self.atom_coords, vector)
+        return molecule
+  
     
     def add_atom(self, atom_symbol, coords,**kwargs):
-        atom_data = kwargs.get('atom_data', None)
+        #atom_data = kwargs.get('atom_data', None)
         inplace = kwargs.get('inplace', self.inplace)
+        molecule = self.instance(inplace)
         
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
         psuedo_atom = {atom_symbol: coords}
         molecule.atom_coords = sm.make_molecule_union(molecule.atom_coords, psuedo_atom)
+        
         if atom_symbol.startswith('R'):
             molecule.num_r_atoms += 1
         else:
             molecule.num_atoms += 1
         return molecule
     
+    def instance(self, is_inplace):
+        if is_inplace:
+            return self
+        else:
+            return self.copy()
+    
     def remove_atom(self, atom, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
-        del molecule.atom_coords[atom]
+        molecule = self.instance(inplace)
+            
+        del molecule[atom]
         molecule.atom_coords = sm.condense_dict(molecule.atom_coords)
         if atom.startswith('R'):
             molecule.num_r_atoms -= 1
@@ -147,10 +145,8 @@ class Molecule:
     
     def union_with(self, other_molecule, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        molecule = self.instance(inplace)
+        
         molecule.atom_coords = sm.make_molecule_union(molecule.atom_coords, other_molecule.atom_coords)
         molecule.num_atoms += other_molecule.num_atoms
         molecule.num_r_atoms += other_molecule.num_r_atoms
@@ -174,10 +170,8 @@ class Molecule:
             raise ValueError('add_group called with no key')
         
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        
+        molecule = self.instance(inplace)
         
         if not (type(key) is list or type(key) is tuple):
             key = molecule.site(key)
@@ -204,10 +198,7 @@ class Molecule:
         # and the first two are the bond to add across
         
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        molecule = self.instance(inplace)
         
         key = self.active_site
         g_key = group.active_site
@@ -235,10 +226,7 @@ class Molecule:
         THEN CAN FREELY TEST DOPING
         '''   
         inplace = kwargs.get('inplace',self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        molecule = self.instance(inplace)
         
         molecule.atom_coords[new_key] = molecule[key]
         del molecule[key]
@@ -249,26 +237,30 @@ class Molecule:
     
         return molecule
 
-    
+    def replace_r_atoms(self, **kwargs):
+        '''
+        accepts no arguments, replaces r atoms with H atoms.
+        '''
+        inplace = kwargs.get('inplace', self.inplace)
+        molecule = self.instance(inplace)
+        molecule = sm_new.replace_r_atoms(molecule)
+        molecule.num_r_atoms = 0
+        molecule.num_atoms = len(molecule.atom_coords)
+        return molecule
+        
     
     def prune_close_atoms(self, **kwargs):
         threshold = kwargs.get('threshold', 0.5)
         db = kwargs.get('debug', False)
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        molecule = self.instance(inplace)
         molecule.atom_coords = sm.prune_close_atoms(molecule.atom_coords, threshold, debug=db)
         molecule.num_atoms, molecule.num_r_atoms = sm.count_atoms(molecule.atom_coords)
         return molecule
 
     def distort(self, function, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        if inplace:
-            molecule = self
-        else:
-            molecule = self.copy()
+        molecule = self.instance(inplace)
         molecule.atom_coords = sm_new.distort(molecule.atom_coords, function, **kwargs)
         return molecule
         
@@ -287,6 +279,7 @@ class Molecule:
             new_molecule.sites = copy.deepcopy(self.sites)
         if type(self.atom_info) is dict:
             new_molecule.atom_info = copy.deepcopy(self.atom_info)
+            
         new_molecule.num_atoms = self.num_atoms
         new_molecule.num_r_atoms = self.num_r_atoms
         new_molecule.sites = self.sites

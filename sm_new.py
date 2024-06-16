@@ -63,7 +63,7 @@ def show(mol_coords, **kwargs):
     
     for i in range(len(distances)):
         for j in range(i+1, len(distances)):
-            if distances[i][j] < 1.6:
+            if distances[i][j] < 1.6 and not (atom_types[i] == 'H' and atom_types[j] == 'H'):
                 data.append(
                     go.Scatter3d(
                         x=[coordinates[i][0], coordinates[j][0]],
@@ -107,6 +107,25 @@ def show(mol_coords, **kwargs):
     ),
     fig.show()
     
+def replace_r_atoms(molecule):
+    '''
+    '''
+    new_molecule = molecule.copy()
+    assert type(new_molecule) is type(molecule)
+    new_atoms = []
+    
+    for atom in molecule:
+        symbol = re.match(r'[A-Za-z]+', atom).group()
+        if symbol == 'R':
+            del new_molecule[atom]
+            new_atoms.append(('H', molecule[atom]))
+            
+    for atom in new_atoms:
+        new_molecule.add_atom(atom[0], atom[1])
+        
+    del molecule
+    return new_molecule
+            
     
 # def debug_print_vectors(*args):
 #     for arg in args:
@@ -209,7 +228,7 @@ def add_group(_m1, keys1, _m2, keys2, **kwargs):
     assert np.allclose(m1[m1_c], np.array([0,0,0]))
     assert np.allclose(m2[m2_c], np.array([0,0,0]))
     
-    anti_mat = smt.antialign_matrix(m1_cr, m2_cr)
+    anti_mat = mm.align_matrix(-m1_cr,m2_cr)
     
     m2 = m2.transform(anti_mat)
     
@@ -221,29 +240,42 @@ def add_group(_m1, keys1, _m2, keys2, **kwargs):
     #only now that bonds are aligned...
     
     if m1_d and m2_d:
+        m1_cr = m1[m1_r] - m1[m1_c]
+        m2_cr = m2[m2_r] - m2[m2_c]
+        
         m1_cd = m1[m1_d] - m1[m1_c]
         m2_cd = m2[m2_d] - m2[m2_c]
 
-        if debug:
-            tuple1 = ('m1_cd:', m1_cd)
-            tuple2 = ('m2_cd:', m2_cd)
+        
+        if debug: 
+            tuple1 = ('m1_cr:', m1_cr)
+            tuple2 = ('m2_cr:', m2_cr)
             debug_print_vectors(tuple1, tuple2)
+    
 
         m1_plane_norm = np.cross(m1_cr, m1_cd)
         m2_plane_norm = np.cross(m2_cr, m2_cd)
         
-        angle_between = smt.angle_between_vectors(m1_plane_norm, m2_plane_norm)
+        
+        if debug:
+            tuple1 = ('m1_cd:', m1_cd)
+            tuple2 = ('m2_cd:', m2_cd)
+            tuple3 = ('m1_cr:', m1_cr)
+            tuple4 = ('m2_cr:', m2_cr)
+            tuple5 = ('m1_plane_norm:', m1_plane_norm)
+            tuple6 = ('m2_plane_norm:', m2_plane_norm)
+            debug_print_vectors(tuple1, tuple2,tuple3, tuple4, tuple5, tuple6)
+        
+        angle_between = mm.angle_about_axis(m1_plane_norm, m2_plane_norm, m1_cr,debug=debug)
         
         trans_angle = dihedral_angle - angle_between
-        
-        cross = np.cross(m2_plane_norm, m1_plane_norm)
         
         if debug:
             print('angle_between:', angle_between)
             print('diheral_angle:', dihedral_angle)
             print('trans_angle:', trans_angle  )
         #might just scrap and rewrite smt
-        rotation_mat = smt.rotation_about_axis(cross, trans_angle)
+        rotation_mat = smt.rotation_about_axis(m1_cr, trans_angle)
         
         #need to see if this goes the way I want it to..
         m2 = m2.transform(rotation_mat)
@@ -313,13 +345,13 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
     
     m1_c1 = keys1[0]
     m1_c2 = keys1[1]
-    m1_r1 = keys1[2] if keys1[2] is not None else None 
-    m1_r2 = keys1[3] if keys1[3] is not None else None
+    m1_r1 = keys1[2] if len(keys1) > 2  else None 
+    m1_r2 = keys1[3] if len(keys1) >3 else None
         
     m2_c1 = keys2[0]
     m2_c2 = keys2[1]
-    m2_r1 = keys2[2] if keys2[2] is not None else None
-    m2_r2 = keys2[3] if keys2[3] is not None else None
+    m2_r1 = keys2[2] if len(keys2) > 2 else None
+    m2_r2 = keys2[3] if len(keys2) > 3 else None
     
     # find the shared bond
     m1_c1c2 = m1[m1_c2] - m1[m1_c1]
@@ -331,7 +363,7 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
         debug_print_vectors(tuple_1, tuple_2)
     
     #align mol2 to mol1
-    align_mat = smt.align_matrix(m2_c1c2, m1_c1c2)
+    align_mat = smt.align_matrix(m1_c1c2, m2_c1c2)
     m2 = smt.translate(m2, -m2[m2_c1])
     m2 = smt.transform(m2, align_mat)
     if debug:
