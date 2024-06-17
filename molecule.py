@@ -97,33 +97,33 @@ class Molecule:
     def transform(self, matrix, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
         
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
-        molecule.atom_coords = smt.transform(self.atom_coords, matrix)
+        _molecule.atom_coords = smt.transform(self.atom_coords, matrix)
         
-        return molecule
+        return _molecule
     
     def translate(self, vector, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
 
-        molecule = self.instance(inplace)
-        molecule.atom_coords = smt.translate(self.atom_coords, vector)
-        return molecule
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = smt.translate(self.atom_coords, vector)
+        return _molecule
   
     
     def add_atom(self, atom_symbol, coords,**kwargs):
         #atom_data = kwargs.get('atom_data', None)
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
         psuedo_atom = {atom_symbol: coords}
-        molecule.atom_coords = sm.make_molecule_union(molecule.atom_coords, psuedo_atom)
+        _molecule.atom_coords = sm.make_molecule_union(_molecule.atom_coords, psuedo_atom)
         
         if atom_symbol.startswith('R'):
-            molecule.num_r_atoms += 1
+            _molecule.num_r_atoms += 1
         else:
-            molecule.num_atoms += 1
-        return molecule
+            _molecule.num_atoms += 1
+        return _molecule
     
     def instance(self, is_inplace):
         if is_inplace:
@@ -133,24 +133,24 @@ class Molecule:
     
     def remove_atom(self, atom, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
             
-        del molecule[atom]
-        molecule.atom_coords = sm.condense_dict(molecule.atom_coords)
+        del _molecule[atom]
+        _molecule.atom_coords = sm.condense_dict(_molecule.atom_coords)
         if atom.startswith('R'):
-            molecule.num_r_atoms -= 1
+            _molecule.num_r_atoms -= 1
         else:  
-            molecule.num_atoms -= 1
-        return molecule
+            _molecule.num_atoms -= 1
+        return _molecule
     
     def union_with(self, other_molecule, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
-        molecule.atom_coords = sm.make_molecule_union(molecule.atom_coords, other_molecule.atom_coords)
-        molecule.num_atoms += other_molecule.num_atoms
-        molecule.num_r_atoms += other_molecule.num_r_atoms
-        return molecule
+        _molecule.atom_coords = sm.make_molecule_union(_molecule.atom_coords, other_molecule.atom_coords)
+        _molecule.num_atoms += other_molecule.num_atoms
+        _molecule.num_r_atoms += other_molecule.num_r_atoms
+        return _molecule
         
     def add_group(self, group, **kwargs):
         '''
@@ -171,18 +171,18 @@ class Molecule:
         
         inplace = kwargs.get('inplace', self.inplace)
         
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
         if not (type(key) is list or type(key) is tuple):
-            key = molecule.site(key)
+            key = _molecule.site(key)
         if not (type(g_key) is list or type(g_key) is tuple):
             g_key = group.site(g_key)
         
-        molecule = sm_new.add_group(molecule, key, group, g_key, **kwargs)
+        _molecule = sm_new.add_group(_molecule, key, group, g_key, **kwargs)
     
-        molecule.num_atoms, molecule.num_r_atoms = sm.count_atoms(molecule.atom_coords)
+        _molecule.num_atoms, _molecule.num_r_atoms = sm.count_atoms(_molecule.atom_coords)
         
-        return molecule
+        return _molecule
         
 
 
@@ -198,25 +198,25 @@ class Molecule:
         # and the first two are the bond to add across
         
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
         key = self.active_site
         g_key = group.active_site
         
         if not (type(key) is list or type(key) is tuple):
-            key = molecule.sites[key]
+            key = _molecule.sites[key]
 
         if not (type(g_key) is list or type(g_key) is tuple):
             g_key = group.sites[g_key]
             
-        molecule.atom_coords = sm_new.add_across_bond(molecule.atom_coords, key, group.atom_coords, g_key, **kwargs)
+        _molecule.atom_coords = sm_new.add_across_bond(_molecule.atom_coords, key, group.atom_coords, g_key, **kwargs)
         
         db = kwargs.get('debug', False)
         clean = kwargs.get('clean', True)
         if clean:
-            molecule = molecule.prune_close_atoms(**kwargs)        
-            molecule.atom_coords = sm.condense_dict(molecule.atom_coords)
-        return molecule
+            _molecule = _molecule.prune_close_atoms(**kwargs)        
+            _molecule.atom_coords = sm.condense_dict(_molecule.atom_coords)
+        return _molecule
        
        
        
@@ -226,43 +226,43 @@ class Molecule:
         THEN CAN FREELY TEST DOPING
         '''   
         inplace = kwargs.get('inplace',self.inplace)
-        molecule = self.instance(inplace)
+        _molecule = self.instance(inplace)
         
-        molecule.atom_coords[new_key] = molecule[key]
-        del molecule[key]
+        _molecule.atom_coords[new_key] = _molecule[key]
+        del _molecule[key]
         
         debug = kwargs.get('debug',False)
-        if debug: print(f'Atom Coords:\n{molecule.atom_coords}')
-        molecule.atom_coords = sm.condense_dict(molecule.atom_coords)
+        if debug: print(f'Atom Coords:\n{_molecule.atom_coords}')
+        _molecule.atom_coords = sm.condense_dict(_molecule.atom_coords)
     
-        return molecule
+        return _molecule
 
     def replace_r_atoms(self, **kwargs):
         '''
         accepts no arguments, replaces r atoms with H atoms.
         '''
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
-        molecule = sm_new.replace_r_atoms(molecule)
-        molecule.num_r_atoms = 0
-        molecule.num_atoms = len(molecule.atom_coords)
-        return molecule
+        _molecule = self.instance(inplace)
+        _molecule = sm_new.replace_r_atoms(_molecule)
+        _molecule.num_r_atoms = 0
+        _molecule.num_atoms = len(_molecule.atom_coords)
+        return _molecule
         
     
     def prune_close_atoms(self, **kwargs):
         threshold = kwargs.get('threshold', 0.5)
         db = kwargs.get('debug', False)
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
-        molecule.atom_coords = sm.prune_close_atoms(molecule.atom_coords, threshold, debug=db)
-        molecule.num_atoms, molecule.num_r_atoms = sm.count_atoms(molecule.atom_coords)
-        return molecule
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = sm.prune_close_atoms(_molecule.atom_coords, threshold, debug=db)
+        _molecule.num_atoms, _molecule.num_r_atoms = sm.count_atoms(_molecule.atom_coords)
+        return _molecule
 
     def distort(self, function, **kwargs):
         inplace = kwargs.get('inplace', self.inplace)
-        molecule = self.instance(inplace)
-        molecule.atom_coords = sm_new.distort(molecule.atom_coords, function, **kwargs)
-        return molecule
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = sm_new.distort(_molecule.atom_coords, function, **kwargs)
+        return _molecule
         
         
     def is_similar(self, other_molecule):
