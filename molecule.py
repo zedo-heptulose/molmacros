@@ -112,6 +112,9 @@ class Molecule:
   
     
     def add_atom(self, atom_symbol, coords,**kwargs):
+        '''
+        not working at the moment
+        '''
         #atom_data = kwargs.get('atom_data', None)
         inplace = kwargs.get('inplace', self.inplace)
         _molecule = self.instance(inplace)

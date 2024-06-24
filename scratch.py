@@ -218,3 +218,4 @@ for i in range(1,4):
     sixteen_chain.prune_close_atoms()
     sixteen_chain.write_xyz(f'graphenes/closed_dimer_{i}x{i}.xyz')
 
+

@@ -115,15 +115,16 @@ def replace_r_atoms(molecule):
     new_atoms = []
     
     for atom in molecule:
-        symbol = re.match(r'[A-Za-z]+', atom).group()
-        if symbol == 'R':
+        if atom.startswith('R'):
             del new_molecule[atom]
+            
             new_atoms.append(('H', molecule[atom]))
             
     for atom in new_atoms:
         new_molecule.add_atom(atom[0], atom[1])
         
     del molecule
+    
     return new_molecule
             
     
