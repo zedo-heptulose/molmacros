@@ -177,73 +177,10 @@ def rotation_about_axis(_axis, angle):
     return rotation_matrix
 
 def align_matrix(v1, v2):
-    angle_between = angle_between_vectors(v1, v2)
-    #print(angle_between)
-    
-    if close(angle_between, 0):
-        #print('zero close')
-        return np.eye(3)
-    
-    if close(angle_between, np.pi):
-        #print ('pi close')
-        z_axis = np.array([0,0,1])
-        y_axis = np.array([0,1,0])
-        rot_ax = np.cross(v1, z_axis)
-        if np.allclose(rot_ax, np.array([0,0,0])):
-            rot_ax = np.cross(v1, y_axis)
-            if np.allclose(rot_ax, np.array([0,0,0])):
-                raise ValueError("bad vector?")
-        
-        return rotation_about_axis(rot_ax, np.pi)
-    
-    #print ('arbitrary angle')
-    par_angle = angle_between
-    axis = np.cross(v1 , v2) / np.linalg.norm(np.cross(v1 , v2))
-    
-    if np.allclose(axis, np.array([0,0,0])):
-        raise ValueError("how did you get here?")
-    par_matrix = rotation_about_axis(axis, par_angle)
-    
-    return par_matrix
-
+    raise NotImplementedError()
 
 def antialign_matrix(v1, v2, **kwargs):
-    '''
-    returns matrix that will align V1 antiparallel to V2
-    '''
-    angle_between = angle_between_vectors(v1, v2)
-    
-    ###print(angle_between)
-    ###print()
-    
-    axis = kwargs.get('axis', None)
-    
-    if close(angle_between, 0): #this also fails because of floating point error.
-        z_axis = np.array([0,0,1])
-        y_axis = np.array([0,1,0])
-        if axis is None:
-            axis = np.cross(v1, z_axis)
-            if close(np.linalg.norm(axis), 0):
-                axis = np.cross(v1, y_axis)
-        ##print('gets to angle == 0')
-        return rotation_about_axis(axis, np.pi)
-        
-    if close(angle_between, np.pi): #this fails because of floating point error...
-        ##print ('gets to angle == pi')
-        return np.eye(3)
-        
-    #HERE behaves unpredictably. returns align where it should antialign, etc.
-    anti_angle = np.pi + angle_between
-    if axis is None:
-        axis = np.cross(v1 , v2)
-    ##print (axis)
-    if np.allclose(axis, np.array([0,0,0])):
-        raise ValueError("how did you get here?")
-    antipar_matrix = rotation_about_axis(axis, anti_angle)
-    
-    #print ('gets to end')
-    
-    return antipar_matrix
+    raise NotImplementedError()
 
 
 def dihedral_rotation_matrix(p1, p2, dihedral_angle):

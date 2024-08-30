@@ -107,23 +107,37 @@ def show(mol_coords, **kwargs):
     ),
     fig.show()
     
-def replace_r_atoms(molecule):
+def replace_r_atoms(molecule, **kwargs):
     '''
     '''
+    print ('AAAA')
+    debug = kwargs.get('debug', False)
+    
     new_molecule = molecule.copy()
     assert type(new_molecule) is type(molecule)
-    new_atoms = []
+    coords = []
     
-    for atom in molecule:
-        symbol = re.match(r'[A-Za-z]+', atom).group()
-        if symbol == 'R':
-            del new_molecule[atom]
-            new_atoms.append(('H', molecule[atom]))
+    if debug:
+        print('molecule before replacing R atoms:')
+        new_molecule.show()
+    
+    for atom in molecule: #don't really get it.
+        if atom.startswith('R'):
+            del new_molecule[atom] # this also works.
+            if debug:
+                print('deleting atom:', atom)
+                new_molecule.show() 
+            assert type(molecule[atom]) is np.ndarray
+            coords.append(molecule[atom]) # so should this?
             
-    for atom in new_atoms:
-        new_molecule.add_atom(atom[0], atom[1])
-        
+    for coord in coords:
+        new_molecule = new_molecule.add_atom('H', coord) # I know this works.
+        if debug: 
+            print('adding atom:', 'H', coord)
+            new_molecule.show()
     del molecule
+    
+    
     return new_molecule
             
     
@@ -363,7 +377,7 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
         debug_print_vectors(tuple_1, tuple_2)
     
     #align mol2 to mol1
-    align_mat = smt.align_matrix(m1_c1c2, m2_c1c2)
+    align_mat = mm.align_matrix(m1_c1c2, m2_c1c2)
     m2 = smt.translate(m2, -m2[m2_c1])
     m2 = smt.transform(m2, align_mat)
     if debug:
@@ -415,7 +429,10 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
             tuple2 = ('m2_plane_norm:', m2_plane_norm)
             debug_print_vectors(tuple1, tuple2)
 
-        anti_align_mat = smt.antialign_matrix(m1_plane_norm, m2_plane_norm, axis = m1_c1c2)
+        # I've found the error. This procedure is simply wrong.
+        # this needs to be a rotation about an axis, not an align matrix.
+        # I can cannibalize a lot of the code from the other one.
+        anti_align_mat = mm.align_matrix(-m1_plane_norm, m2_plane_norm)
         #need to be able to set axis for anti_align_mat
         m2 = smt.transform(m2, anti_align_mat)
         
@@ -453,6 +470,10 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
     if debug: print('returning m1')
     return m1
     # if third atoms are present, antialign dihedrals
+    
+    
+    
+     
     
 def find_close_H(molecule, atom, threshold = 1.3, **kwargs):
     '''

@@ -148,8 +148,8 @@ def show(molecule, **kwargs):
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection = '3d')
-
-    keys = [key for key in molecule if not re.match('H\d+', key)]
+    #this is a test to see if jupyter will be annoying
+    keys = [key for key in molecule if not re.match(r'H\d+', key)]
     
     for key in keys:
         if not isinstance(molecule[key], (list, np.ndarray)):
@@ -162,7 +162,7 @@ def show(molecule, **kwargs):
     #if display hydrogens flag is true, appends h keys to keys
     #and H points to points
     if display_hydrogens:
-        H_keys = [key for key in molecule if re.match('H\d+', key)]
+        H_keys = [key for key in molecule if re.match(r'H\d+', key)]
         
         H_x_points = [molecule[key][0] for key in H_keys]
         H_y_points = [molecule[key][1] for key in H_keys]
