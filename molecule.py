@@ -295,15 +295,15 @@ class Molecule:
         ax1 = np.array([1,0,0])
         ax2 = np.array([0,1,0])
 
-        if len(list_atoms) == 0 or len(list_atoms) == 1:
+        if len(atoms) == 0 or len(atoms) == 1:
             print('Zero or one atoms passed to align_to_plane')
             return _molecule
-        if len(list_atoms) == 2:
+        if len(atoms) == 2:
             #align to ax1
             #TODO: IMPLEMENT THIS
             pass
 
-        if len(list_atoms) == 3:
+        if len(atoms) == 3:
             #align plane normals of molecu;e and plane
             a1coord = _molecule[atoms[0]]
             a2coord = _molecule[atoms[1]]
