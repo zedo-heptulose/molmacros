@@ -13,6 +13,7 @@ clean up weird stuff
 
 import structuremaker as sm
 import sm_new
+import molmath as mm
 import structure_math as smt
 import numpy as np
 import os
