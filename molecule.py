@@ -290,8 +290,13 @@ class Molecule:
         '''
         inplace = kwargs.get('inplace',self.inplace)
         _molecule = self.instance(inplace)
-       
-        #define axes based on kwargs. xy is default
+        
+        debug = kwargs.get('debug',False)
+        
+        if debug: 
+            print('molecule before edit:')
+            self.show()
+        #deine axes based on kwargs. xy is default
         #MAN this syntax highlighting is ugly.
         ax1 = np.array([1,0,0])
         ax2 = np.array([0,1,0])
@@ -316,8 +321,20 @@ class Molecule:
 
             alignment_mat = mm.align_matrix(ext_plnorm,mol_plnorm)
 
-            _molecule.transform(alignment_mat)
-
+            _molecule = _molecule.transform(alignment_mat)
+            
+            if debug:
+                print(f'a1coord : {a1coord}')
+                print(f'a2coord : {a2coord}')
+                print(f'a3coord : {a3coord}')
+                print(f'mol_v1 : {mol_v1}')
+                print(f'mol_v2 : {mol_v2}')
+                print(f'mol_plnorm : {mol_plnorm}')
+                print(f'ext_plnorm : {ext_plnorm}')
+                print(f'alignment_mat : {alignment_mat}')
+                print(f'molecule after transformation:')
+                _molecule.show()
+        
         return _molecule
 
             
