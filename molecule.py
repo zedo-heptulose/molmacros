@@ -292,10 +292,10 @@ class Molecule:
        
         #define axes based on kwargs. xy is default
         #MAN this syntax highlighting is ugly.
-        ax1 = np.array[1,0,0]
-        ax2 = np.array[0,1,0]
+        ax1 = np.array([1,0,0])
+        ax2 = np.array([0,1,0])
 
-        if len(list_atoms) == 0 || len(list_atoms) == 1:
+        if len(list_atoms) == 0 or len(list_atoms) == 1:
             print('Zero or one atoms passed to align_to_plane')
             return _molecule
         if len(list_atoms) == 2:
