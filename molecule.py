@@ -333,15 +333,9 @@ class Molecule:
                 print(f'ext_plnorm : {ext_plnorm}')
                 print(f'alignment_mat : {alignment_mat}')
                 print(f'molecule after transformation:')
-                _molecule.show()
-        
+                _molecule.show()      
         return _molecule
-
-            
-
-
-    
-        
+     
     def is_similar(self, other_molecule):
         return sm.similar(self.atom_coords, other_molecule.atom_dict)
     

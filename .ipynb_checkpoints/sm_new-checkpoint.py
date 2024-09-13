@@ -78,19 +78,22 @@ def show(mol_coords, **kwargs):
                 )
     fig = go.Figure(data=data)
     
-    min_coord = min(min(x),min(y),min(z))
-    max_coord = max(max(x),max(y),max(z))
-    
-    
     show_geom = kwargs.get('show_geom', False)
-    fig.update_layout(
-        showlegend=False,
-        scene = dict(
-            xaxis=dict(showgrid=show_geom, showline=show_geom, showbackground =show_geom, range=[min_coord, max_coord]),
-            yaxis=dict(showgrid=show_geom, showline=show_geom, showbackground =show_geom, range=[min_coord, max_coord]),
-            zaxis=dict(showgrid=show_geom, showline=show_geom, showbackground =show_geom, range=[min_coord, max_coord]),
+    
+    ax_style = dict(showbackground=False,
+                    showgrid=True,
+                    zeroline=True,
+                    gridcolor='red',
+                    zerolinecolor='green',
+                    )
 
-        ),
+    fig.update_layout(
+        scene=dict(xaxis=ax_style,
+                   yaxis=ax_style,
+                   zaxis=ax_style,
+                   ),
+
+        showlegend=False,
         width = 500,
         height= 500,
         
@@ -104,6 +107,7 @@ def show(mol_coords, **kwargs):
                 ),
         paper_bgcolor='rgba(140,140,140,0.5)',
         plot_bgcolor='rgba(0,100,140,0.5)',
+        scene_aspectmode='data',
     ),
     fig.show()
     
@@ -506,15 +510,21 @@ def distort(molecule, function, **kwargs):
     apply a distortion function to the molecule
     '''
     debug = kwargs.get('debug', False)
-    exempt = kwargs.get('exempt', [])
+    atom_mask = kwargs.get('atom_mask',None)
+    anti_mask = kwargs.get('anti_mask', [])
+    
     if debug:
         print('\n\n\n\n\n////////////////////in distort////////////////////////\n\n\n\n\n')
         print('molecule:')
         show(molecule)
     
-    for key in molecule:
-        if key not in exempt:
+    if atom_mask:
+        for key in atom_mask:
             molecule[key] = function(molecule[key])
+    else:
+        for key in molecule:
+            if key not in anti_mask:
+                molecule[key] = function(molecule[key])
     
     if debug:
         print('molecule after distortion:')
