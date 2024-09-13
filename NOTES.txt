@@ -1,0 +1,6 @@
+TODO
+
+...
+what to do here?
+
+the display still squishes molecules, fix this.
