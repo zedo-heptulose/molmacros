@@ -13,6 +13,7 @@ clean up weird stuff
 
 import structuremaker as sm
 import sm_new
+import molmath as mm
 import structure_math as smt
 import numpy as np
 import os
@@ -151,7 +152,7 @@ class Molecule:
         inplace = kwargs.get('inplace', self.inplace)
         _molecule = self.instance(inplace)
         
-        _molecule.atom_coords = sm.make_molecule_union(_molecule.atom_coords, other_molecule.atom_coords)
+        _molecule.atom_coords = sm_new.make_molecule_union(_molecule.atom_coords, other_molecule.atom_coords)
         _molecule.num_atoms += other_molecule.num_atoms
         _molecule.num_r_atoms += other_molecule.num_r_atoms
         return _molecule
@@ -274,8 +275,77 @@ class Molecule:
         _molecule = self.instance(inplace)
         _molecule.atom_coords = sm_new.distort(_molecule.atom_coords, function, **kwargs)
         return _molecule
+
+    def collapse_atom_numbers(self,**kwargs):
+        '''
+        gets rid of gaps in atom numbering, while
+        preserving order
+        '''
+        inplace = kwargs.get('inplace', self.inplace)
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = sm_new.sort_keys(_molecule.atom_coords)
+        return _molecule
+    
+    def align_to_plane(self,atoms,**kwargs):
+        '''
+        args here should be a list of atoms to align to a plane.
+        If one atom, do nothing
+        if two atoms, align those to the x axis
+        if three atoms, align those to the xy axis
+        kwargs:
+        axis1,
+        axis2
+        ='x','y','z'
+        plane='xy','xz','yz'
+        '''
+        inplace = kwargs.get('inplace',self.inplace)
+        _molecule = self.instance(inplace)
         
+        debug = kwargs.get('debug',False)
         
+        if debug: 
+            print('molecule before edit:')
+            self.show()
+        #deine axes based on kwargs. xy is default
+        #MAN this syntax highlighting is ugly.
+        ax1 = np.array([1,0,0])
+        ax2 = np.array([0,1,0])
+
+        if len(atoms) == 0 or len(atoms) == 1:
+            print('Zero or one atoms passed to align_to_plane')
+            return _molecule
+        if len(atoms) == 2:
+            #align to ax1
+            #TODO: IMPLEMENT THIS
+            pass
+
+        if len(atoms) == 3:
+            #align plane normals of molecu;e and plane
+            a1coord = _molecule[atoms[0]]
+            a2coord = _molecule[atoms[1]]
+            a3coord = _molecule[atoms[2]]
+            mol_v1 = a2coord - a1coord
+            mol_v2 = a3coord - a1coord
+            mol_plnorm = np.cross(mol_v1,mol_v2)
+            ext_plnorm = np.cross(ax1,ax2)
+
+            alignment_mat = mm.align_matrix(ext_plnorm,mol_plnorm)
+
+            _molecule = _molecule.transform(alignment_mat)
+            
+            if debug:
+                print(f'a1coord : {a1coord}')
+                print(f'a2coord : {a2coord}')
+                print(f'a3coord : {a3coord}')
+                print(f'mol_v1 : {mol_v1}')
+                print(f'mol_v2 : {mol_v2}')
+                print(f'mol_plnorm : {mol_plnorm}')
+                print(f'ext_plnorm : {ext_plnorm}')
+                print(f'alignment_mat : {alignment_mat}')
+                print(f'molecule after transformation:')
+                _molecule.show()      
+        return _molecule
+     
     def is_similar(self, other_molecule):
         return sm.similar(self.atom_coords, other_molecule.atom_dict)
     

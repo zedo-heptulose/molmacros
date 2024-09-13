@@ -152,7 +152,7 @@ class Molecule:
         inplace = kwargs.get('inplace', self.inplace)
         _molecule = self.instance(inplace)
         
-        _molecule.atom_coords = sm.make_molecule_union(_molecule.atom_coords, other_molecule.atom_coords)
+        _molecule.atom_coords = sm_new.make_molecule_union(_molecule.atom_coords, other_molecule.atom_coords)
         _molecule.num_atoms += other_molecule.num_atoms
         _molecule.num_r_atoms += other_molecule.num_r_atoms
         return _molecule
@@ -275,7 +275,17 @@ class Molecule:
         _molecule = self.instance(inplace)
         _molecule.atom_coords = sm_new.distort(_molecule.atom_coords, function, **kwargs)
         return _molecule
-       
+
+    def collapse_atom_numbers(self,**kwargs):
+        '''
+        gets rid of gaps in atom numbering, while
+        preserving order
+        '''
+        inplace = kwargs.get('inplace', self.inplace)
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = sm_new.sort_keys(_molecule.atom_coords)
+        return _molecule
+    
     def align_to_plane(self,atoms,**kwargs):
         '''
         args here should be a list of atoms to align to a plane.

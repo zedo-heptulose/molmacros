@@ -532,24 +532,55 @@ def distort(molecule, function, **kwargs):
     return molecule
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+def make_molecule_union(molecule1, molecule2, **kwargs):
+    mol1 = molecule1.copy()
+    mol2 = molecule2.copy()
 
-# Create a grid of points in the x-y plane
-x = np.linspace(-5, 5, 100)
-y = np.linspace(-5, 5, 100)
-x, y = np.meshgrid(x, y)
+    molecule_union = {}
+    atom_count = 1
+    #count keys in mol1 to see what highest number is
+    #count from there when adding keys from mol2
+    #index starts at 1
+    num_pattern = re.compile(r'\d+')    
+    for key in molecule1:
+        #look for highest index
+        num = re.search(num_pattern,key)
+        if num:
+            num = int(num.group(0))
+        else:
+            raise ValueError('atom without number in molecule')
+        if num > atom_count:
+            atom_count = num
+        #add atom
+        coords = molecule1[key]
+        molecule_union[key] = coords
+    
+    for key in molecule2:
+        atom_count += 1
+        symbol = re.match(r'([A-Za-z]{1,2})',key).group(1)
+        new_key = symbol + str(atom_count)
+        coords = molecule2[key]
+        molecule_union[new_key] = coords
 
-# Compute the distance from the origin for each point
-r = np.sqrt(x**2 + y**2)
+    return molecule_union
+    
+def sort_keys(_molecule):
+    '''
+    collapses numbers in keys so that there 
+    are no gaps counting from 1
+    '''
+    molecule = {}
+    keys = [key for key in _molecule]
+    keys = sorted(keys,key=lambda x: int(re.search(r'\d+',x).group(0)))
+    atom_count = 1
+    for key in keys:
+        symbol = re.match(r'([A-Za-z]{1,2})',key).group(1)
+        new_key = symbol + str(atom_count)
+        coords = _molecule[key]
+        molecule[new_key] = coords
+        atom_count += 1
+    return molecule
 
-# Define the radial function z = r^2
-z = r**2
 
-# Create a 3D plot
-fig = plt.figure();
-ax = fig.add_subplot(111, projection='3d');
-ax.plot_surface(x, y, z, cmap='viridis')
+        
 
-plt.show()
