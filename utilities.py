@@ -1,5 +1,6 @@
 import molecule as mol
 import os
+import numpy as np
 
 def get_templates(directory, **kwargs):
     '''
@@ -135,4 +136,63 @@ def iterate_groups(cores, groups, **kwargs):
             iterations[key] = temp
             
     return iterations
+
+
+def n_chain(molecule, site1,site2, length,dihedral_angle,debug=True):
+    '''
+    this makes the side chains for the big ol molecules.
+    '''
+    if debug: print('////////////////In n_chain: /////////////////\n\n')
+    if length == 1:
+        return molecule
+
+    old_site = molecule.active_site
+    
+    mol2 = molecule.copy()
+    if debug:
+        print('molecule\n')
+        molecule.show()
+        molecule.print_sites()
+        print('\n\nmol2:\n')
+        mol2.show()
+        mol2.print_sites()
+        
+    for i in range(length-1):       
+        molecule.active_site = site2
+        mol2.active_site = site1
+        mol2 = molecule.add_group(mol2,dihedral_angle=dihedral_angle)
+        if debug:
+            print(f'added group {i+1}')
+            mol2.show()
+    
+    molecule.active_site = old_site
+    return mol2
+    
+def chain_squared(molecule, sites1, sites2, length1, length2, dihedral_angle,debug=True):
+    '''
+    this makes the side chains for the big ol molecules.
+    '''
+    if length1 == 1 and length2 == 1:
+        return molecule
+
+    old_site = molecule.active_site
+    
+    site1 = sites1[0]
+    site2 = sites1[1]
+    
+    side_chain = n_chain(molecule,site1,site2,length1,dihedral_angle,debug=debug)
+    
+    n_site1 = sites2[0]
+    n_site2 = sites2[1]
+    
+    mol2 = molecule.copy()
+    for i in range(length1-1):       
+        #trial and error lol let's goooo
+        mol2 = n_chain(side_chain,n_site1,n_site2,length2,np.pi/100,debug=debug)
+        if debug:
+            print(f'added group {i+1}')
+            mol2.show()
+    
+    molecule.active_site = old_site
+    return mol2
 
