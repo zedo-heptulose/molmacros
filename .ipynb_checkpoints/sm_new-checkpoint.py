@@ -581,6 +581,34 @@ def sort_keys(_molecule):
         atom_count += 1
     return molecule
 
+def rotate_keys(_molecule,key1,position):
+    '''
+    Swaps the numbers associated with two keys.
+    Expects a molecule with collapsed atom numbers.
+    Unpredictable results if this is not so.
+    '''
+    key1_num = re.search(r'\d+',key1).group(0)
+    molecule = _molecule.copy()
+    coords1 = _molecule[key1]
+    key2 = None
+    for key in _molecule:
+        num = int(re.search(r'\d+',key).group(0))
+        if num == position:
+            key2 = key
+            coords2 = _molecule[key2]
+            
+            key2_symbol = re.match(r'([A-Za-z]{1,2})',key1).group(1)
+            key2_num = re.search(r'\d+',key).group(0)
+            key1_symbol = re.match(r'([A-Za-z]{1,2})',key1).group(1)
+            new_key1 = key1_symbol + key2_num
+            new_key2 = key2_symbol + key1_num
+            break
+    if not key2:
+        raise ValueError('bad position number')
+    
+    del molecule[key1]
+    del molecule[key2]
+    molecule[new_key1] = coords1
+    molecule[new_key2] = coords2
 
-        
-
+    return molecule

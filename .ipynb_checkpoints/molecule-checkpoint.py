@@ -19,6 +19,10 @@ import numpy as np
 import os
 import copy
 
+#persistence and storing keys
+import pickle
+import json
+
 
 class Atom:
     def __init__(self):
@@ -31,6 +35,15 @@ INPLACE_DEFAULT = False
 
 class Molecule:
     def __init__(self, **kwargs):
+        self.atom_coords = {}  # maps keys to numpy arrays
+        self.num_atoms = 0  # number of non-R atoms
+        self.num_r_atoms = 0  # number of R atoms
+        self.atom_info = {}  # maps keys to Atom objects
+        self.sites = {}  # maps keys to lists of keys
+        self.name = None
+        self.active_site = None
+        self.inplace = INPLACE_DEFAULT
+    
         atom_dict = kwargs.get('atom_dict', None)
         filename = kwargs.get('filename', None)
         if atom_dict is not None:
@@ -38,22 +51,83 @@ class Molecule:
             self.num_atoms = len(atom_dict)
             self.num_r_atoms = 0
         elif filename is not None:
+            self.name = os.path.basename(filename).split('.')[0]
             extension = os.path.splitext(filename)[1]
             if extension == '.xyz':
                 self.atom_coords, self.num_atoms, self.num_r_atoms = sm.read_xyz(filename)
+            elif extension == '.json':
+                with open(f'{filename}', 'r') as file:
+                    self = self.deserialize_json(json.load(file))
+
+                
+            elif extension == '.pkl':
+                raise NotImplementedError('.pkl file extension does not work with this class')
+                try:
+                    with open(filename, 'rb') as file:
+                        self = pickle.load(file)
+                except Exception as e:
+                    print(f"Error during loading: {e}")           
             else:
-                raise ValueError('Invalid file type. Must be .xyz')
-        else:
-            self.atom_coords = {}  # maps keys to numpy arrays
-            self.num_atoms = 0  # number of non-R atoms
-            self.num_r_atoms = 0  # number of R atoms
-            
-        self.atom_info = {}  # maps keys to Atom objects
-        self.sites = {}  # maps keys to lists of keys
-        self.name = None
-        self.active_site = None
-        self.inplace = INPLACE_DEFAULT
+                raise ValueError('Invalid file type. Must be .xyz or .json')   
+
+
+    def deserialize_json(self,json_dict):
+        jd = json_dict
+        self.atom_coords = {key: np.array(jd['atom_coords'][key]) for key in jd['atom_coords']}.copy()
+        self.num_atoms = jd['num_atoms']
+        self.atom_info = jd['atom_info'].copy()
+        self.sites = jd['sites'].copy()
+        self.name = jd['name']
+        self.active_site = jd['active_site']
+        self.inplace = jd['inplace']
+        return self
+        
+    def serialize_dict(self):
+        #TODO: IMPLEMENT ATOM INFO
+            return {
+                'atom_coords': {key : list(self.atom_coords[key]) for key in self.atom_coords},  # maps keys to numpy arrays
+                'num_atoms': self.num_atoms,  # number of non-R atoms
+                'atom_info': {}, #NOT IMPLEMENTED # maps keys to Atom objects
+                'sites': self.sites,  # maps keys to lists of keys
+                'name': self.name,
+                'active_site': self.active_site,
+                'inplace': self.inplace
+            }
+        
+    def write_xyz(self, filename, comment = None):
+        sm.write_xyz(filename, self.atom_coords, comment=None)
+
+    def write_json(self,**kwargs):
+        directory=kwargs.get('dir','../data/lib/gen')
+        if directory.endswith('/'):
+            directory = directory[:-1]
+        name = kwargs.get('name',None)
+        if not name:
+            name = self.name
+        if not name:
+            raise ValueError('Must have name to write object')
+        if '.' in name:
+            name = os.path.splitext(name)[0]
+        with open(f'{directory}/{name}.json', 'w') as file:
+            json.dump(self.serialize_dict(), file)
     
+    def write_pkl(self,**kwargs):
+        '''BROKEN'''
+        raise NotImplementedError()
+        
+        directory=kwargs.get('dir','../data/lib/gen')
+        if directory.endswith('/'):
+            directory = directory[:-1]
+        name = kwargs.get('name',None)
+        if not name:
+            name = self.name
+        try:
+            with open(f'{directory}/{name}.pkl', 'wb') as file:
+                pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print(f'Error during writing: {e}')
+    
+
     def __getitem__(self, key):
         return self.atom_coords[key]
     
@@ -345,13 +419,21 @@ class Molecule:
                 print(f'molecule after transformation:')
                 _molecule.show()      
         return _molecule
-     
+
+    def rotate_atoms(self,atom1,index,**kwargs):
+        '''
+        rotates atom1 to specified index
+        '''
+        inplace = kwargs.get('inplace', self.inplace)
+        _molecule = self.instance(inplace)
+        _molecule.atom_coords = sm_new.rotate_keys(_molecule.atom_coords,atom1,index)
+        return _molecule
+        
+    
     def is_similar(self, other_molecule):
         return sm.similar(self.atom_coords, other_molecule.atom_dict)
-    
-    def write_xyz(self, filename, comment = None):
-        sm.write_xyz(filename, self.atom_coords, comment=None)
-        
+
+
     def copy(self):
         new_molecule = Molecule()
         if type(self.atom_coords) is dict:
