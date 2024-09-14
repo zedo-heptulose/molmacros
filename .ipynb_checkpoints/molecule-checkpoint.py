@@ -58,7 +58,6 @@ class Molecule:
             elif extension == '.json':
                 with open(f'{filename}', 'r') as file:
                     self = self.deserialize_json(json.load(file))
-
                 
             elif extension == '.pkl':
                 raise NotImplementedError('.pkl file extension does not work with this class')
@@ -69,8 +68,28 @@ class Molecule:
                     print(f"Error during loading: {e}")           
             else:
                 raise ValueError('Invalid file type. Must be .xyz or .json')   
-
-
+    def add_bonding_site(self,name,atoms,**kwargs):
+        '''
+        accepts a name for a site and a list of atom keys
+        expects atoms in this order:
+        atom to be replaced
+        atom to bond to
+        atom to use for dihedral angle
+        (second atom for dihedral angle, for add_across_bond sites)
+        '''
+        inplace = kwargs.get('inplace', self.inplace)
+        _molecule = self.instance(inplace)
+        if _molecule.sites.get(name,None) and not kwargs.get('update',None):
+            raise ValueError('Tried to overwrite site without update=True')
+        _molecule.sites[name] = atoms
+        return _molecule
+        
+    def remove_bonding_site(self,name,**kwargs):
+        inplace = kwargs.get('inplace', self.inplace)
+        _molecule = self.instance(inplace)
+        del _molecule.sites[name]
+        return _molecule
+        
     def deserialize_json(self,json_dict):
         jd = json_dict
         self.atom_coords = {key: np.array(jd['atom_coords'][key]) for key in jd['atom_coords']}.copy()
@@ -436,17 +455,29 @@ class Molecule:
 
     def copy(self):
         new_molecule = Molecule()
-        if type(self.atom_coords) is dict:
-            new_molecule.atom_coords = copy.deepcopy(self.atom_coords)
-        if type(self.sites) is dict:
-            new_molecule.sites = copy.deepcopy(self.sites)
-        if type(self.atom_info) is dict:
-            new_molecule.atom_info = copy.deepcopy(self.atom_info)
-            
+        
+        assert type(self.atom_coords) is dict
+        new_molecule.atom_coords = copy.deepcopy(self.atom_coords)
+        
+        assert type(self.sites) is dict or self.sites is None
+        new_molecule.sites = copy.deepcopy(self.sites)
+        
+        assert type(self.atom_info) is dict or self.atom_info is None
+        new_molecule.atom_info = copy.deepcopy(self.atom_info)
+        
+        assert type(self.num_atoms) is int
         new_molecule.num_atoms = self.num_atoms
+        
+        assert type(self.num_r_atoms) is int or self.num_r_atoms is None
         new_molecule.num_r_atoms = self.num_r_atoms
-        new_molecule.sites = self.sites
+        
+        assert type(self.name) is str or self.name is None
         new_molecule.name = self.name
+
+        assert type(self.active_site) is str or self.active_site is None
         new_molecule.active_site = self.active_site
+
+        assert type(self.inplace) is bool or self.inplace is None
         new_molecule.inplace = self.inplace
+        
         return new_molecule
