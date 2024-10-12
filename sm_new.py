@@ -24,61 +24,117 @@ color_map = {
     'R': 'grey'
 }
 
-
-def show(mol_coords, **kwargs):
+def show(mol_coords, unitcell=None, **kwargs):
     '''
-    shows the molecule
+    Shows a molecule or multiple molecules along with an optional unit cell.
+    
+    Parameters:
+    - mol_coords: Either a single molecule's coordinate dictionary or a list of such dictionaries.
+    - lattice_vectors: A 3x3 numpy array representing the unit cell lattice vectors (optional).
+    - show_hydrogens: Whether to display hydrogen atoms (default True).
+    - show_geom: Whether to show geometry lines (default False).
     '''
     show_hydrogens = kwargs.get('show_hydrogens', True)
-    if not show_hydrogens:
-        mol_coords = {key: mol_coords[key] for key in mol_coords if not key.startswith('H')}
-    x = [mol_coords[atom][0] for atom in mol_coords]
-    y = [mol_coords[atom][1] for atom in mol_coords]
-    z = [mol_coords[atom][2] for atom in mol_coords]
-    atom_types = [re.match(r'[A-Za-z]+', key).group() for key in mol_coords]
-
-    colors = [color_map[atom_type] for atom_type in atom_types]
-
-    atom_labels = [key for key in mol_coords]
+    show_geom = kwargs.get('show_geom', False)
+    data = []
     
-    data = [
-        go.Scatter3d(
-            x=x, 
-            y=y, 
-            z=z, 
-            mode='markers',
-            text=atom_labels,
-            hoverinfo='text',
-            marker=dict(
-                size=3,
-                color=colors,                # set color to an array/list of desired values
-                colorscale='Viridis',   # choose a colorscale
-                opacity=0.8
+    # Check if we're dealing with a single molecule or multiple molecules
+    if isinstance(mol_coords, dict):
+        # Convert single molecule into a list
+        mol_coords_list = [mol_coords]
+    elif isinstance(mol_coords, list):
+        mol_coords_list = mol_coords
+    else:
+        raise ValueError("mol_coords must be a dictionary (for a single molecule) or a list of dictionaries (for multiple molecules).")
+    
+    # Loop through the list of molecule coordinates
+    for mol_index, mol_coords in enumerate(mol_coords_list):
+        if not show_hydrogens:
+            mol_coords = {key: mol_coords[key] for key in mol_coords if not key.startswith('H')}
+
+        x = [mol_coords[atom][0] for atom in mol_coords]
+        y = [mol_coords[atom][1] for atom in mol_coords]
+        z = [mol_coords[atom][2] for atom in mol_coords]
+        atom_types = [re.match(r'[A-Za-z]+', key).group() for key in mol_coords]
+
+        # Assign different colors to each molecule
+        colors = [color_map[atom_type] for atom_type in atom_types]
+
+        atom_labels = [key for key in mol_coords]
+        
+        # Plot atoms as scatter points
+        data.append(
+            go.Scatter3d(
+                x=x, 
+                y=y, 
+                z=z, 
+                mode='markers' + ('+text' if kwargs.get('show_labels',False) else ''),
+                text=[f'{label}' for label in atom_labels], 
+                hoverinfo='text',
+                marker=dict(
+                    size=3,
+                    color=colors,   # Atom colors based on their types
+                    colorscale='Viridis',
+                    opacity=0.8
+                )
             )
         )
-    ]
-    
-    coordinates = list(zip(x,y,z))
-    distances = squareform(pdist(coordinates))
-    
-    for i in range(len(distances)):
-        for j in range(i+1, len(distances)):
-            if distances[i][j] < 1.6 and not (atom_types[i] == 'H' and atom_types[j] == 'H'):
-                data.append(
-                    go.Scatter3d(
-                        x=[coordinates[i][0], coordinates[j][0]],
-                        y=[coordinates[i][1], coordinates[j][1]],
-                        z=[coordinates[i][2], coordinates[j][2]],
-                        mode='lines',
-                        line=dict(
-                            color='black', 
-                            width=3
+        
+        # Calculate distances between atoms and plot bonds
+        coordinates = list(zip(x, y, z))
+        distances = squareform(pdist(coordinates))
+        
+        for i in range(len(distances)):
+            for j in range(i+1, len(distances)):
+                if distances[i][j] < 1.8 and not (atom_types[i] == 'H' and atom_types[j] == 'H'):
+                    data.append(
+                        go.Scatter3d(
+                            x=[coordinates[i][0], coordinates[j][0]],
+                            y=[coordinates[i][1], coordinates[j][1]],
+                            z=[coordinates[i][2], coordinates[j][2]],
+                            mode='lines',
+                            line=dict(
+                                color='black', 
+                                width=3
+                            )
                         )
                     )
+
+    if unitcell:
+        print('USING UNIT CELL:')
+        #display vertices connected by lines
+        origin = np.array([0,0,0])
+        corners = [
+            origin,
+            unitcell.tv1,
+            unitcell.tv2,
+            unitcell.tv3,
+            unitcell.tv1 + unitcell.tv2,
+            unitcell.tv1 + unitcell.tv3,
+            unitcell.tv2 + unitcell.tv3,
+            unitcell.tv1 + unitcell.tv2 + unitcell.tv3,
+        ]
+
+        edges = [
+            (0, 1), (0, 2), (0, 3),
+            (1, 4), (1, 5), (2, 4), (2, 6),
+            (3, 5), (3, 6), (4, 7), (5, 7), (6, 7)
+        ]
+
+        for start, end in edges:
+            data.append(
+                go.Scatter3d(
+                    x=[corners[start][0], corners[end][0]],
+                    y=[corners[start][1], corners[end][1]],
+                    z=[corners[start][2], corners[end][2]],
+                    mode='lines',
+                    line=dict(color='blue', width=2),
+                    name='Unit Cell Edge'
                 )
+            )
+
+    # Set up the figure layout
     fig = go.Figure(data=data)
-    
-    show_geom = kwargs.get('show_geom', False)
     
     ax_style = dict(showbackground=False,
                     showgrid=True,
@@ -94,9 +150,8 @@ def show(mol_coords, **kwargs):
                    ),
 
         showlegend=False,
-        width = 500,
-        height= 500,
-        
+        width=500,
+        height=500,
         autosize=False,
         margin=dict(
             l=50,  # left margin
@@ -104,13 +159,25 @@ def show(mol_coords, **kwargs):
             b=100,  # bottom margin
             t=100,  # top margin
             pad=10  # padding
-                ),
+        ),
         paper_bgcolor='rgba(140,140,140,0.5)',
         plot_bgcolor='rgba(0,100,140,0.5)',
         scene_aspectmode='data',
-    ),
-    fig.show()
+    )
     
+    show = kwargs.get('show', True)
+    if show:
+        fig.show()
+    else:
+        return fig
+
+    # fig.show()
+
+
+
+
+
+
 def replace_r_atoms(molecule, **kwargs):
     '''
     '''
@@ -363,8 +430,8 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
     
     m1_c1 = keys1[0]
     m1_c2 = keys1[1]
-    m1_r1 = keys1[2] if len(keys1) > 2  else None 
-    m1_r2 = keys1[3] if len(keys1) >3 else None
+    m1_r1 = keys1[2] if len(keys1) > 2 else None 
+    m1_r2 = keys1[3] if len(keys1) > 3 else None
         
     m2_c1 = keys2[0]
     m2_c2 = keys2[1]
@@ -399,51 +466,27 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
         m1_r = m1_r1 if m1.get(m1_r1,None) is not None else m1_r2
         m2_r = m2_r1 if m2.get(m2_r1,None) is not None else m2_r2
         
-        m1_c1 = keys1[0]
         m1_c1r = m1[m1_r] - m1[m1_c1]
-        
-        if debug:
-            tuple1 = ('m1_c1r1:', m1_c1r)
-            tuple2 = ('m1_c1:', m1[m1_c1])
-            tuple3 = ('m1_r:', m1[m1_r])
-            debug_print_vectors(tuple1, tuple2, tuple3)
-        
-        # m2_c2 = keys2[1]
-        m2_c1r = m2[m2_r] - m2[m2_c1]
-        m2_c1c2 = m2[m2_c2] - m2[m2_c1]
-        
-        
-        if debug:
-            tuple1 = ('m2_c1r:', m2_c1r)
-            tuple2 = ('m2_c1:', m2[m2_c1])
-            tuple3 = ('m2_r:', m2[m2_r])
-            debug_print_vectors(tuple1, tuple2, tuple3)
-            print(f'm2_c1r: {m2_c1r}')
-            print(f'm1_c1r: {m1_c1r}')
-            print(f'm2_c1: {m2[m2_c1]}')
-            print(f'm1_c1: {m1[m1_c1]}')
-            print(f'm2_r: {m2[m2_r]}')
-            print(f'm1_r: {m1[m1_r]}')
-            
-        m1_plane_norm = np.cross(m1_c1c2, m1_c1r)
-        m2_plane_norm = np.cross(m2_c1c2, m2_c1r)
-        
-        if debug:
-            tuple1 = ('m1_plane_norm:', m1_plane_norm)
-            tuple2 = ('m2_plane_norm:', m2_plane_norm)
-            debug_print_vectors(tuple1, tuple2)
 
-        # I've found the error. This procedure is simply wrong.
-        # this needs to be a rotation about an axis, not an align matrix.
-        # I can cannibalize a lot of the code from the other one.
-        anti_align_mat = mm.align_matrix(-m1_plane_norm, m2_plane_norm)
-        #need to be able to set axis for anti_align_mat
-        m2 = smt.transform(m2, anti_align_mat)
+        new_m2_c1c2 = m2[m2_c2] - m2[m2_c1]
+        m2_c1r =m2[m2_r] - m2[m2_c1]
         
-        if debug:
-            print('m2 after anti_align:')
-            show(m2)
-            print('anti_align_mat:', anti_align_mat)
+        m1_plnorm = np.cross(m1_c1c2,m1_c1r)
+        m1_plnorm /= np.linalg.norm(m1_plnorm)
+        m2_plnorm = np.cross(new_m2_c1c2,m2_c1r)
+        m2_plnorm /= np.linalg.norm(m1_plnorm)
+
+        intersect_angle = kwargs.get('angle',np.pi)
+
+        current_angle = mm.angle_about_axis(m1_plnorm,m2_plnorm,new_m2_c1c2)
+
+        difference_angle = intersect_angle - current_angle
+
+        rotation_matrix = smt.rotation_about_axis(new_m2_c1c2,difference_angle)
+
+        #it is still properly translated to do this
+        m2 = smt.transform(m2,rotation_matrix)
+        
     
     m2 = smt.translate(m2, m1[m1_c1] - m2[m2_c1])
     
@@ -465,8 +508,7 @@ def add_across_bond(_m1, keys1, _m2, keys2, **kwargs):
         show(m2)
         print('making union:')
     
-    
-    m1 = sm.make_molecule_union(m1, m2)
+    m1 = make_molecule_union(m1, m2)
     if debug:
         print('m1 after union:')
         show(m1)
@@ -612,3 +654,20 @@ def rotate_keys(_molecule,key1,position):
     molecule[new_key2] = coords2
 
     return molecule
+
+#writes coordinate output
+def write_xyz(filename, atom_dict, comment = None):
+    with open(filename, 'w') as coordinate_output:
+        coordinate_output.write(f'{str(len(atom_dict))}\n')
+        if comment is not None:
+            coordinate_output.write(f'{comment}\n')
+        else:
+            coordinate_output.write('\n')
+        atom_list = [(key,atom_dict[key]) for key in atom_dict]
+        atom_list = sorted(atom_list,key=lambda x: int(re.search(r'\d+',x[0]).group(0)))
+        
+        for atom, coords in atom_list:
+            symbol = re.match(r'[A-Za-z]{1,2}', atom)[0]
+            coordinate_output.write(f'{symbol} {coords[0]:.6f} {coords[1]:.6f} {coords[2]:.6f}\n')
+
+

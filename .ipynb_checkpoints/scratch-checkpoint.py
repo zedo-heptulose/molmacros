@@ -312,3 +312,41 @@ for i in range(1,4):
     sixteen_chain = sixteen_chain.replace_r_atoms()
     sixteen_chain = sixteen_chain.prune_close_atoms(threshold = 1.0)
     sixteen_chain.write_xyz(f'../data/graphenes/open_dimer_{i}x{i}.xyz')
+
+
+
+################ CODE USED TO GENERATE THE TETRARADICAL ##########################def distortion(coords): 
+    x = coords[0]
+    z = coords[2]
+    y = coords[1] + 0.2 * (np.cos(x) + np.cos(z))
+    return np.array([x,y,z])
+
+newcore = core.distort(distortion)
+
+newcore = newcore.distort(lambda c : np.array([c[0],c[1]+1,c[2]]), anti_mask=['H7','H69','H120','H30'])
+
+newcore = newcore.distort(lambda c : np.array([c[0],c[1]-1,c[2]]),anti_mask=['H19','H98','H108','H61'])
+g = util.get_templates('../data/lib/graphenes',using_keys=True)
+core = g['core'].copy()
+
+sp2 = temp['sp2'].copy()
+sp2.active_site = '1'
+
+core.active_site = '1'
+core = core.add_group(sp2,dihedral_angle=np.pi/4)
+
+core.active_site = '2'
+core = core.add_group(sp2,dihedral_angle=2*np.pi/3)
+
+core.active_site = '3'
+core = core.add_group(sp2,dihedral_angle=np.pi/4)
+
+core.active_site = '4'
+core = core.add_group(sp2,dihedral_angle=np.pi/4)
+
+
+core.show()
+
+
+newcore.show()
+newcore.write_xyz(f'../data/lib/graphenes/core.xyz')
