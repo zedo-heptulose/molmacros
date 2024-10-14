@@ -1,0 +1,90 @@
+#goes:
+#for ring above "M":
+#1: I2
+#2: benzene (1 tbu) 4
+#3b: benzene
+#5b parent
+#triphenylene radial ring:
+#1b M ring
+#3b parent
+#central ring:
+#1b, 3b, 5b above structures
+
+
+twistycore = benzene.copy()
+twistycore.show()
+def radial_distort(array):
+    x = array[0]
+    y = array[1]
+    z = array[2]
+    radius = np.sqrt(x**2+z**2)
+    angle = np.arcsin(z/radius)
+    y += np.sin(angle)*1
+    return np.array([x,y,z])
+    
+
+
+
+    
+twistycore = twistycore.translate(-twistycore['C1'])
+twistycore = twistycore.translate(twistycore['C5']-twistycore['C6'])
+twistycore = twistycore.distort(radial_distort)
+twistycore.show()
+
+import utilities as ut
+import molecule as mol
+import numpy as np
+
+def radial_distort(array):
+    x = array[0]
+    y = array[1]
+    z = array[2]
+    radius = np.sqrt(x**2+z**2)
+    angle = np.arcsin(z/radius)
+    y += np.sin(angle)*radius*0.5
+    return np.array([x,y,z])
+
+t = ut.get_templates('lib')
+benzene = t['benzene'].copy()
+tbuph = benzene.copy()
+tbuph.active_site = '1'
+tbu = t['tbu'].copy()
+tbu.active_site = '1'
+i2 = t['i2'].copy()
+i2.active_site = '1'
+tbuph = tbuph.add_group(tbu,spatial_args = [2.0,2.0])
+
+tbuph.active_site = '4'
+
+m_ring = benzene.copy()
+m_ring.active_site = '1'
+m_ring = m_ring.add_group(i2)
+m_ring.active_site = '2'
+m_ring = m_ring.add_group(tbuph)
+m_ring.active_site = '3b'
+benzene.active_site = '1b'
+m_ring = m_ring.add_across_bond(benzene)
+m_ring.active_site = '5b'
+m_ring.show()
+
+trip_ring = benzene.copy()
+trip_ring.active_site = '1b'
+trip_ring = trip_ring.add_across_bond(m_ring)
+
+exempt = ['C1','C2','C3','C4']
+trip_ring = trip_ring.distort(radial_distort, exempt = exempt)
+
+trip_ring.show()
+trip_ring.active_site = '3b'
+
+
+core = benzene.copy()
+core.active_site = '1b'
+core= core.add_across_bond(trip_ring)
+core.active_site = '3b'
+core= core.add_across_bond(trip_ring)
+core.active_site = '5b'
+core= core.add_across_bond(trip_ring)
+core.show()
+
+core.write_xyz('test/favour.xyz')
