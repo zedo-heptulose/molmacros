@@ -235,13 +235,22 @@ class Molecule:
         return self
 
     @_inplace_or_copy
-    def remove_atom(self, atom, **kwargs):
-        del self[atom]
-        self.atom_coords = sm.condense_dict(self.atom_coords)
-        if atom.startswith('R'):
-            self.num_r_atoms -= 1
-        else:  
-            self.num_atoms -= 1
+    def remove_atoms(self, atoms, **kwargs):
+        if type(atoms) is list:
+            for atom in atoms:
+                del self[atom]
+                if atom.startswith('R'):
+                    self.num_r_atoms -= 1
+                else:  
+                    self.num_atoms -= 1
+        elif type(atoms) is str:
+            del self[atoms]
+
+        else:
+            raise ValueError('invalid type. remove_atoms accepts str or list(str)')
+        if kwargs.get('condense',False):
+            self.atom_coords = sm.condense_dict(self.atom_coords)
+ 
         return self
     
     @_inplace_or_copy
