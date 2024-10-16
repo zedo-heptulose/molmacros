@@ -17,12 +17,23 @@ import molmath as mm
 import structure_math as smt
 import numpy as np
 import os
+import shutil
 import copy
 
 #persistence and storing keys
 import pickle
 import json
 
+#xtb harness integration
+import sys
+
+
+path = os.path.abspath('../batch-manager')
+if path not in sys.path:
+    sys.path.append(path)
+
+import input_files
+import job_harness
 
 class Atom:
     def __init__(self):
@@ -114,21 +125,6 @@ class Molecule:
         with open(f'{directory}/{name}.json', 'w') as file:
             json.dump(self.serialize_dict(), file)
     
-    def write_pkl(self,**kwargs):
-        raise NotImplementedError()
-        
-        directory=kwargs.get('dir','../data/lib/gen')
-        if directory.endswith('/'):
-            directory = directory[:-1]
-        name = kwargs.get('name',None)
-        if not name:
-            name = self.name
-        try:
-            with open(f'{directory}/{name}.pkl', 'wb') as file:
-                pickle.dump(self, file, protocol=pickle.HIGHEST_PROTOCOL)
-        except Exception as e:
-            print(f'Error during writing: {e}')
-    
 
     def __getitem__(self, key):
         return self.atom_coords[key]
@@ -173,6 +169,40 @@ class Molecule:
         self.sites[name] = atoms
         return self
         
+    @_inplace_or_copy
+    def gfn2opt(self,**kwargs):
+        scratch_dir = '.scratch'
+        os.mkdir(scratch_dir)
+        job_basename = self.name
+        self.write_xyz(directory=scratch_dir)
+
+        xtb_builder = input_files.xTBInputBuilder()
+        xtb_job = xtb_builder.change_params({
+            'xyz_directory': scratch_dir,
+            'xyz_file': job_basename+'.xyz',
+            'job_basename': job_basename,
+            'write_directory': scratch_dir,
+            }).build()
+        xtb_job.debug = True
+        xtb_job.create_directory()
+        
+        xtb_harness = job_harness.xTBHarness()
+        #xtb_harness.mode = 'direct'
+        xtb_harness.job_name = job_basename
+        xtb_harness.directory = scratch_dir
+        ret_val = xtb_harness.MainLoop()
+        if ret_val == 0:
+            print('Successful optimization')
+
+            self.atom_coords, self.num_atoms, self.num_r_atoms = sm.read_xyz(os.path.join(scratch_dir,'xtbopt.xyz'))
+            shutil.rmtree(scratch_dir)
+            return self
+
+        else:
+            raise RuntimeError('Geometry optimization failed, check input')
+
+
+
     def remove_bonding_site(self,name,**kwargs):
         del self.sites[name]
         return self
