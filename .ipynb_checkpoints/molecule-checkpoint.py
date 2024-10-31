@@ -20,6 +20,8 @@ import os
 import shutil
 import copy
 
+import re
+
 #persistence and storing keys
 import pickle
 import json
@@ -35,17 +37,12 @@ if path not in sys.path:
 import input_files
 import job_harness
 
-class Atom:
-    def __init__(self):
-        self.type = None
-        self.isotope_mass = None
-        self.charge = 0
-        self.spin = 0
-
 INPLACE_DEFAULT = False        
 
 class Molecule:
     def __init__(self, **kwargs):
+        self.debug = False
+        
         self.atom_coords = {}  # maps keys to numpy arrays
         self.num_atoms = 0  # number of non-R atoms
         self.num_r_atoms = 0  # number of R atoms
@@ -68,7 +65,7 @@ class Molecule:
                 self.atom_coords, self.num_atoms, self.num_r_atoms = sm.read_xyz(filename)
             elif extension == '.json':
                 with open(f'{filename}', 'r') as file:
-                    self = self.deserialize_json(json.load(file))
+                    self = self.from_dict(json.load(file))
                 
             elif extension == '.pkl':
                 raise NotImplementedError('.pkl file extension does not work with this class')
@@ -80,24 +77,22 @@ class Molecule:
             else:
                 raise ValueError('Invalid file type. Must be .xyz or .json')   
 
-    def deserialize_json(self,json_dict):
-        jd = json_dict
+    def from_dict(self,some_dict):
+        jd = some_dict
         self.atom_coords = {key: np.array(jd['atom_coords'][key]) for key in jd['atom_coords']}.copy()
         self.num_atoms = jd['num_atoms']
-        self.atom_info = jd['atom_info'].copy()
         self.sites = jd['sites'].copy()
         self.name = jd['name']
         self.active_site = jd['active_site']
         self.inplace = jd['inplace']
         return self
         
-    def serialize_dict(self):
+    def to_dict(self):
         #TODO: IMPLEMENT ATOM INFO
             return {
-                'atom_coords': {key : list(self.atom_coords[key]) for key in self.atom_coords},  # maps keys to numpy arrays
+                'atom_coords': {key : list(array) for key,array in self.atom_coords.items()},  # maps keys to numpy arrays
                 'num_atoms': self.num_atoms,  # number of non-R atoms
-                'atom_info': {}, #NOT IMPLEMENTED # maps keys to Atom objects
-                'sites': self.sites,  # maps keys to lists of keys
+                'sites': copy.deepcopy(self.sites),  # maps keys to lists of keys
                 'name': self.name,
                 'active_site': self.active_site,
                 'inplace': self.inplace
@@ -112,7 +107,7 @@ class Molecule:
         sm_new.write_xyz(full_path,self.atom_coords, comment=None)
 
     def write_json(self,**kwargs):
-        directory=kwargs.get('directory','../data/lib/gen')
+        directory=kwargs.get('directory','/gpfs/home/gdb20/code/mol-maker/data/lib/gen')
         if directory.endswith('/'):
             directory = directory[:-1]
         name = kwargs.get('name',None)
@@ -123,7 +118,7 @@ class Molecule:
         if '.' in name:
             name = os.path.splitext(name)[0]
         with open(f'{directory}/{name}.json', 'w') as file:
-            json.dump(self.serialize_dict(), file)
+            json.dump(self.to_dict(), file)
     
 
     def __getitem__(self, key):
@@ -153,49 +148,76 @@ class Molecule:
             return result
         return wrapper
 
-    def add_bonding_site(self,name,atoms,**kwargs):
+    def add_bonding_sites(self,bs_dict,**kwargs):
         '''
         accepts a name for a site and a list of atom keys
         expects atoms in this order:
         atom to be replaced
         atom to bond to
         atom to use for dihedral angle
-        (second atom for dihedral angle, for add_across_bond sites)
+        (second atom for dihedral angle, for join_ring sites)
 
         Functions concerning bonding sites are inplace by default
         '''
-        if self.sites.get(name,None) and not kwargs.get('update',True):
-            raise ValueError('Tried to overwrite site with update=False')
-        self.sites[name] = atoms
+        self.sites = self.sites.update(bs_dict)
+        # if self.sites.get(name,None) and not kwargs.get('update',True):
+        #     raise ValueError('Tried to overwrite site with update=False')
         return self
-        
+
+    @_inplace_or_copy
+    def set_name(self,_name,**kwargs):
+    #we use this so that we can chain this operation
+    #with others with the dot operator
+        if type(_name) is str:
+            self.name = _name
+        else:
+            raise ValueError("Molecule name must be a string")
+    
+        return self
+    
+    #TODO: this should not use the SLURM queue and use resources allocated to the jupyter notebook we run this in, if possible.
     @_inplace_or_copy
     def gfn2opt(self,**kwargs):
-        scratch_dir = '.scratch'
+        scratch_dir = kwargs.get('scratch_directory','.scratch')
+        if os.path.exists(scratch_dir): 
+            shutil.rmtree(scratch_dir)
         os.mkdir(scratch_dir)
         job_basename = self.name
         self.write_xyz(directory=scratch_dir)
 
+        job_dir = os.path.join(scratch_dir,job_basename)
+        
         xtb_builder = input_files.xTBInputBuilder()
         xtb_job = xtb_builder.change_params({
             'xyz_directory': scratch_dir,
             'xyz_file': job_basename+'.xyz',
             'job_basename': job_basename,
-            'write_directory': scratch_dir,
+            'write_directory': job_dir,
+            'charge' : kwargs.get('charge',0),
+            'spin_multiplicity' : kwargs.get('spin_multiplicity',1),
             }).build()
-        xtb_job.debug = True
+
+        #TODO: name this kwarg something beter
+
+        xtb_job.debug = False
+            
         xtb_job.create_directory()
         
         xtb_harness = job_harness.xTBHarness()
         #xtb_harness.mode = 'direct'
+        xtb_harness.silent = True
+        xtb_harness.debug = False
+        if kwargs.get('print_log',False):
+            xtb_job.silent = False
+            xtb_harness.debug = True
+            
         xtb_harness.job_name = job_basename
-        xtb_harness.directory = scratch_dir
+        xtb_harness.directory = job_dir
         ret_val = xtb_harness.MainLoop()
         if ret_val == 0:
             print('Successful optimization')
 
-            self.atom_coords, self.num_atoms, self.num_r_atoms = sm.read_xyz(os.path.join(scratch_dir,'xtbopt.xyz'))
-            shutil.rmtree(scratch_dir)
+            self.atom_coords, self.num_atoms, self.num_r_atoms = sm.read_xyz(os.path.join(job_dir,'xtbopt.xyz'))
             return self
 
         else:
@@ -251,17 +273,13 @@ class Molecule:
         return self
 
     @_inplace_or_copy
-    def add_atom(self, atom_symbol, coords,**kwargs):
+    def add_atoms(self, atom_dict,**kwargs):
         '''
-        not working at the moment
+        accepts a dict of atom coords, appends to coordinates
         '''
-        psuedo_atom = {atom_symbol: coords}
-        self.atom_coords = sm.make_molecule_union(self.atom_coords, psuedo_atom)
-        
-        if atom_symbol.startswith('R'):
-            self.num_r_atoms += 1
-        else:
-            self.num_atoms += 1
+        for key,value in atom_dict.items():
+            atom_dict[key] = np.array(value)
+        self.atom_coords = sm.make_molecule_union(self.atom_coords,atom_dict)
         return self
 
     @_inplace_or_copy
@@ -292,7 +310,7 @@ class Molecule:
 
     
     @_inplace_or_copy
-    def add_group(self, group, **kwargs):
+    def join(self, group, **kwargs):
         '''
         either accepts name of set of atoms for substitution,
         or the actual atoms as a list or tuple
@@ -301,13 +319,14 @@ class Molecule:
         if key is None:
             key = self.active_site
         if key is None:
-            raise ValueError('add_group called with no key')
+            raise ValueError('join called with no key')
         
         g_key = kwargs.get('g_key', None)
         if g_key is None:
             g_key = group.active_site
         if g_key is None:
-            raise ValueError('add_group called with no key')
+            raise ValueError('join called with no key')
+            
         if not (type(key) is list or type(key) is tuple):
             key = self.site(key)
         if not (type(g_key) is list or type(g_key) is tuple):
@@ -319,7 +338,7 @@ class Molecule:
         return self
         
     @_inplace_or_copy
-    def add_across_bond(self, group,**kwargs):
+    def join_ring(self, group,**kwargs):
         # '''
         # accepts either a tuple of four atom keys
         # or a single variable as a key from the atom's dict
@@ -349,20 +368,51 @@ class Molecule:
         return self
        
        
-    #TODO: this shouldn't change the order of atoms.
+    #TODO: this should also replace atom names in all the keys
     @_inplace_or_copy
-    def replace_atom(self, key,new_key,**kwargs):
+    def replace_atoms(self, atom_map,**kwargs):
         '''
-        #NEXT: MAKE THIS STABLE.
-        THEN CAN FREELY TEST DOPING
-        '''   
-        self.atom_coords[new_key] = self[key]
-        del self[key]
-        
-        debug = kwargs.get('debug',False)
-        if debug: print(f'Atom Coords:\n{self.atom_coords}')
-        self.atom_coords = sm.condense_dict(self.atom_coords)
-    
+        Accepts map or lambda function to replace atoms
+        pairs should be of the form (H1,F)
+        if a pair is passed like, (H,F), we will replace all
+        H atoms with F atoms
+        This does not change the indices of the atoms
+        '''
+        coords = copy.deepcopy(self.atom_coords)
+        for pair in atom_map:
+            if match := re.match('(?:[A-Za-z]+)(\d+)',pair[0]):
+                new_key = pair[1] + match.group(1)
+                coords[new_key] = self[pair[0]]
+                del self[pair[0]]
+                #step two: change the sites
+            
+                for key, value in self.sites.items():
+                    new_site = []
+                    for atom_key in value:
+                        if atom_key == pair[0]:
+                            atom_key = re.sub('[A-Za-z]+',pair[1],atom_key)
+                        new_site.append(atom_key)
+                    self.sites[key] = new_site
+                        
+            elif match := re.match('([A-Za-z]+)(?:$)',pair[0]):
+                for key, value in self.atom_coords.items():
+                    key_match = re.match('([A-Za-z]+)(\d+)',key)
+                    if key_match.group(1) == match.group(1):
+                        new_key = pair[1] + key_match.group(2)
+                        coords[new_key] = self.atom_coords[key]
+                        del coords[key]
+                
+                for key, value in self.sites.items():
+                    new_site = []
+                    for atom_key in value:
+                        if atom_key.startswith(pair[0]):
+                            atom_key = re.sub('[A-Za-z]+',pair[1],atom_key)
+                        new_site.append(atom_key)
+                    self.sites[key] = new_site
+            
+            else:
+                raise ValueError('Bad input in replace_atoms. Expects list of 2-tuples.')
+        self.atom_coords = coords
         return self
 
     @_inplace_or_copy
@@ -416,7 +466,7 @@ class Molecule:
         ='x','y','z'
         plane='xy','xz','yz'
         '''
-        debug = kwargs.get('debug',False)
+        debug = kwargs.get('debug',self.debug)
         
         if debug: 
             print('molecule before edit:')
@@ -480,29 +530,5 @@ class Molecule:
         
     def copy(self):
         new_molecule = Molecule()
-        
-        assert type(self.atom_coords) is dict
-        new_molecule.atom_coords = copy.deepcopy(self.atom_coords)
-        
-        assert type(self.sites) is dict or self.sites is None
-        new_molecule.sites = copy.deepcopy(self.sites)
-        
-        assert type(self.atom_info) is dict or self.atom_info is None
-        new_molecule.atom_info = copy.deepcopy(self.atom_info)
-        
-        assert type(self.num_atoms) is int
-        new_molecule.num_atoms = self.num_atoms
-        
-        assert type(self.num_r_atoms) is int or self.num_r_atoms is None
-        new_molecule.num_r_atoms = self.num_r_atoms
-        
-        assert type(self.name) is str or self.name is None
-        new_molecule.name = self.name
-
-        assert type(self.active_site) is str or self.active_site is None
-        new_molecule.active_site = self.active_site
-
-        assert type(self.inplace) is bool or self.inplace is None
-        new_molecule.inplace = self.inplace
-        
+        new_molecule.from_dict(self.to_dict())
         return new_molecule
