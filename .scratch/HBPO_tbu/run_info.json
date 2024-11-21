@@ -1,0 +1,8 @@
+{
+"directory": ".scratch/HBPO_tbu",
+"job_name": "HBPO_tbu",
+"status": "succeeded",
+"job_id": 10072949,
+"restart": true,
+"ruleset": "/gpfs/home/gdb20/code/batch-manager/rules/xtb_rules.dat"
+}
