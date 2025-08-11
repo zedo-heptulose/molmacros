@@ -1,3 +1,3 @@
-# molecule-editor
+# molecule-editor (placeholder name)
 
-Programmatic molecular editor designed for exploring large chemical spaces.
+scriptable, iterable molecular editor designed for exploring large chemical spaces
