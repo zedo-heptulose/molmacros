@@ -1,3 +1,3 @@
-# molecule-editor (placeholder name)
+# molmacros
 
-scriptable, iterable molecular editor designed for exploring large chemical spaces
+Set of scripts for building and viewing molecules with Jupyter.
